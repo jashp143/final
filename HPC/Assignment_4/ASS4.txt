@@ -1,0 +1,17 @@
+from google.colab import files
+# Upload CUDA files
+uploaded = files.upload()
+
+
+!nvcc add_vector.cu -o add_vector
+!nvcc multiply_matrix.cu -o multiply_matrix
+
+
+
+!./add_vector
+!./multiply_matrix
+
+
+
+from google.colab import files
+files.download('HPC_CUDA_Assignment.ipynb')

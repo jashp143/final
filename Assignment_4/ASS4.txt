@@ -1,0 +1,122 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+### Loading the dataset
+train_df = pd.read_csv('Google_Stock_Price_Train.csv')
+train_df.info()
+
+
+test_df = pd.read_csv('Google_Stock_Price_Test.csv')
+test_df.info()
+
+
+#### Choosing column 'open' for predicition
+train = train_df.loc[:,["Open"]].values
+train.shape
+
+
+### Feature Scaling
+from sklearn.preprocessing import MinMaxScaler
+scaler = MinMaxScaler()
+
+
+train_scaled = scaler.fit_transform(train)
+
+
+plt.plot(train_scaled)
+plt.ylabel("Standardized Values")
+plt.xlabel("Time->")
+plt.show()
+
+
+### Create data structure to train model  
+### Taking reference of past 60 days to predict future stock price  
+### x_train will have data of 60 days prior to current date and y_train will have price on current date
+x_train = []
+y_train = []
+time = 60
+for i in range(60,train_scaled.shape[0]):
+    x_train.append(train_scaled[i-60:i,0])
+    y_train.append(train_scaled[i,0])
+x_train = np.array(x_train)
+y_train = np.array(y_train)
+
+
+x_train.shape,y_train.shape
+
+
+x_train = np.reshape(x_train,newshape=(x_train.shape[0],x_train.shape[1],1))
+x_train.shape
+
+
+### Build model
+from keras.models import Sequential
+from keras.layers import Dense, SimpleRNN,Dropout
+
+
+model = Sequential()
+model.add(SimpleRNN(units=50,activation = "tanh", return_sequences = True, input_shape = (x_train.shape[1], 1)))
+model.add(Dropout(0.2))
+model.add(SimpleRNN(units=50,activation = "tanh", return_sequences = True))
+model.add(Dropout(0.2))
+model.add(SimpleRNN(units=50,activation = "tanh", return_sequences = True))
+model.add(Dropout(0.2))
+model.add(SimpleRNN(units=50))
+model.add(Dropout(0.2))
+model.add(Dense(units=1))
+model.compile(optimizer='adam',loss='mse')
+model.summary()
+
+
+model.fit(x_train,y_train,epochs=100,batch_size=30,validation_split=0.05)
+
+
+### Prepare test dataset
+data = pd.concat((train_df['Open'],test_df['Open']),axis=0)
+
+
+test_input = data.iloc[len(data) - len(test_df) - time : ].values
+test_input.shape
+
+
+test_input = test_input.reshape(-1,1)
+test_input.shape
+
+
+test_scaled = scaler.transform(test_input)
+
+
+#### Create test data set
+x_test = []
+for i in range(time,test_scaled.shape[0]):
+    x_test.append(test_scaled[i - time: i,0 ])
+x_test = np.array(x_test)
+x_test.shape
+
+
+x_test = np.reshape(x_test,newshape=(x_test.shape[0],x_test.shape[1],1))
+x_test.shape
+
+
+y_test = test_df.loc[:,"Open"].values
+
+
+### Model Prediction
+y_pred = model.predict(x_test)
+
+
+y_pred = scaler.inverse_transform(y_pred)
+
+
+output = model.evaluate(x=x_test,y=y_test)
+
+
+plt.plot(y_test, color = 'red', label = 'Real price')
+plt.plot(y_pred, color = 'blue', label = 'Predicted price')
+plt.title('Google Stock price prediction')
+plt.xlabel('Time')
+plt.ylabel('Price')
+plt.legend()
+plt.show()
